@@ -64,7 +64,7 @@ export class ResourceManager {
     }
 
     getKeilUV4Path(target: string): string {
-        return `${this.getKeilRootDir(target)}${File.sep}UV4${File.sep}UV4.exe`;
+        return `${this.getKeilRootDir(target)}${File.sep}UV4${File.sep}uVision.com`;
     }
 
     getCompilerPath(target: string, compiler: string | undefined): string | undefined {

@@ -3,14 +3,14 @@ import { EventEmitter as EventsEmitter } from 'events';
 import { File } from "../node_utility/File";
 import type { KeilProjectInfo } from "../core/KeilProjectInfo";
 import type { OutputChannel } from "vscode";
-import { commands, l10n, window } from "vscode";
+import { commands, l10n, languages, window, Task, TaskScope, ShellExecution, tasks, DiagnosticCollection, DiagnosticSeverity, Diagnostic, Uri, Range } from "vscode";
 import { FileGroup } from "../core/FileGroup";
 import { normalize, resolve } from 'path';
 import { ResourceManager } from "../ResourceManager";
 import { Source } from "../core/Source";
-import { closeSync, openSync, readSync, statSync, watchFile, writeFileSync } from "fs";
+import { closeSync, openSync, readSync, readFileSync, statSync, watchFile, writeFileSync } from "fs";
 import { execSync, spawn } from "child_process";
-import iconv from 'iconv-lite';
+import * as iconv from 'iconv-lite';
 import { CompileCommand, CppProperty } from "./comm";
 import path = require("path");
 import { existsSync } from 'fs';
@@ -49,6 +49,7 @@ export abstract class PTarget implements IView {
     // private uv4LogLockFileWatcher: FileWatcher;
     private isTaskRunning = false;
     private taskChannel: OutputChannel | undefined;
+    private diagnosticCollection: DiagnosticCollection;
     private cStandard: string;
     private cppStandard: string;
     private intelliSenseMode: string | undefined;
@@ -76,6 +77,7 @@ export abstract class PTarget implements IView {
         this.cppStandard = 'c++17';
         this.workspaceDir = `${prjInfo.workspaceDir?.replace(/\\/g, '/') ?? '.'}/`;
         this.uv4LogFile = new File(path.posix.join(this.project.vscodeDir.path, `${this.targetName}_uv4.log`));
+        this.diagnosticCollection = languages.createDiagnosticCollection(`Keil-${this.targetName}`);
     }
 
     private getCppConfigName(project: KeilProjectInfo, target: string): string {
@@ -402,6 +404,9 @@ export abstract class PTarget implements IView {
         }
         this.isTaskRunning = true;
 
+        // 清空旧的诊断信息
+        this.diagnosticCollection.clear();
+
         writeFileSync(this.uv4LogFile.path, '');
         if (this.taskChannel !== undefined) {
             this.taskChannel.dispose();
@@ -427,43 +432,111 @@ export abstract class PTarget implements IView {
             }
         });
 
-        const execCommand = spawn(`${ResourceManager.getInstance().getKeilUV4Path(this.getKeilPlatform())}`,
-            [
-                `-${type}`, `${this.project.uvprjFile.path}`,
-                '-j0',
-                '-t', `${this.targetName}`,
-                '-o', `${this.uv4LogFile.path}`
-            ],
-            {
-                cwd: resolve(__dirname, "./"),
-                stdio: ['pipe', 'pipe', 'pipe']
-            }
+        // 使用 VSCode Task API 来执行编译任务
+        const task = new Task(
+            { type: 'keil-task' },
+            TaskScope.Global,
+            name,
+            'keil',
+            new ShellExecution(
+                `${ResourceManager.getInstance().getKeilUV4Path(this.getKeilPlatform())} -${type} "${this.project.uvprjFile.path}" -j0 -t "${this.targetName}" -o "${this.uv4LogFile.path}"`
+            )
         );
+        
+        task.presentationOptions = {
+            echo: false,
+            focus: false,
+            clear: true
+        };
+        
+        // 监听任务完成事件（tasks.executeTask 的 Promise 在任务启动时就 resolve 了）
+        const taskName = name;
+        const disposable = tasks.onDidEndTask(e => {
+            if (e.execution.task.name === taskName && e.execution.task.source === 'keil') {
+                disposable.dispose();
+                this.isTaskRunning = false;
+                // 延迟一小段时间确保日志文件写入完成
+                setTimeout(() => {
+                    this.updateDiagnosticsFromLog();
+                }, 500);
+                closeSync(fd);
+                logWatcher.removeAllListeners();
+                commands.executeCommand('workbench.action.focusActiveEditorGroup');
+            }
+        });
+        
+        tasks.executeTask(task);
+    }
 
-        execCommand.on('close', (_code) => {
-            this.isTaskRunning = false;
-            // let execSync = require('child_process').execSync;
-            // execSync('sleep ' + 5);
-            // await this.sleep(20);
-            const stats = statSync(this.uv4LogFile.path);
+    /**
+     * 从编译日志文件中解析错误/警告并更新到 VSCode 诊断集合
+     */
+    private updateDiagnosticsFromLog() {
+        try {
+            const logContent = readFileSync(this.uv4LogFile.path);
+            const logStr = iconv.decode(logContent, 'cp936');
+            const prjRoot = this.project.uvprjFile.dir;
+            const diagnosticsMap = new Map<string, Diagnostic[]>();
 
-            while (curPos < stats.size) {
-                const numRead = readSync(fd, buf, 0, 4096, curPos);
+            // ARMCC/ARMCLANG 格式: file(line): error/warning: #code: message
+            // 例如: ../Core/Src/main.c(47): error:  #20: identifier "uint16_" is undefined
+            const armccPattern = /^(.+)\((\d+)\):\s+(error|warning):\s+#([\d\w-]+):\s+(.+)$/gm;
+            // GCC 格式: file:line:column: severity: message
+            // 例如: ../Core/Src/main.c:47:10: error: identifier "uint16_" is undefined
+            const gccPattern = /^(.+):(\d+):(\d+):\s+(error|warning|fatal error):\s+(.*)$/gm;
 
-                if (numRead > 0) {
-                    curPos += numRead;
-                    const txt = this.dealLog(buf.subarray(0, numRead));
+            let match: RegExpExecArray | null;
 
-                    this.taskChannel?.appendLine(txt);
+            // 先尝试 ARMCC 格式
+            while ((match = armccPattern.exec(logStr)) !== null) {
+                const [_full, filePath, lineStr, severity, code, message] = match;
+                this.addDiagnostic(diagnosticsMap, prjRoot, filePath, parseInt(lineStr), 1, severity, message, code);
+            }
+
+            // 如果 ARMCC 没匹配到，尝试 GCC 格式
+            if (diagnosticsMap.size === 0) {
+                while ((match = gccPattern.exec(logStr)) !== null) {
+                    const [_full, filePath, lineStr, colStr, severity, message] = match;
+                    this.addDiagnostic(diagnosticsMap, prjRoot, filePath, parseInt(lineStr), parseInt(colStr), severity, message);
                 }
             }
-            this.taskChannel?.appendLine(`Build Finished!`);
-            closeSync(fd);
-            logWatcher.removeAllListeners();
-            // watcher.dispose();
-            commands.executeCommand('workbench.action.focusActiveEditorGroup');
-        });
 
+            // 更新诊断集合
+            this.diagnosticCollection.clear();
+            for (const [fileUri, diagnostics] of diagnosticsMap) {
+                this.diagnosticCollection.set(Uri.file(fileUri), diagnostics);
+            }
+        } catch (error) {
+            this.project.logger.log(`[Error] 解析编译日志失败: ${error}`);
+        }
+    }
+
+    /**
+     * 添加一条诊断信息到 Map 中
+     */
+    private addDiagnostic(
+        map: Map<string, Diagnostic[]>,
+        prjRoot: string,
+        rawPath: string,
+        line: number,
+        column: number,
+        severity: string,
+        message: string,
+        code?: string
+    ) {
+        // 将相对路径转换为绝对路径
+        const absPath = normalize(prjRoot + File.sep + rawPath).replace(/\\/g, '/');
+        const range = new Range(line - 1, column - 1, line - 1, Number.MAX_SAFE_INTEGER);
+        const diagSeverity = severity.includes('error') ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
+        const diag = new Diagnostic(range, message, diagSeverity);
+        if (code) {
+            diag.code = code;
+        }
+        diag.source = 'Keil';
+
+        const existing = map.get(absPath) || [];
+        existing.push(diag);
+        map.set(absPath, existing);
     }
 
     dealLog(logTxt: Buffer): string {
@@ -473,8 +546,17 @@ export abstract class PTarget implements IView {
         if (srcFileExp.test(logStr)) {
             const prjRoot = this.project.uvprjFile.dir;
 
-            logStr = logStr.replace(srcFileExp, function (_match, str) {
-                return normalize(prjRoot + File.sep + str);
+            logStr = logStr.replace(srcFileExp, (match: string, str: string) => {
+                // 将相对路径转换为绝对路径
+                const absPath = normalize(prjRoot + File.sep + str);
+                
+                // 如果工作空间目录存在且绝对路径在工作空间内，转换为相对于工作空间的路径
+                if (this.project.workspaceDir && absPath.startsWith(this.project.workspaceDir)) {
+                    return absPath.substring(this.project.workspaceDir.length);
+                }
+                
+                // 否则返回绝对路径
+                return absPath;
             });
         }
 
@@ -536,6 +618,7 @@ export abstract class PTarget implements IView {
 
     close() {
         // this.uv4LogLockFileWatcher.close();
+        this.diagnosticCollection.dispose();
     }
 
     getChildViews(): IView[] | undefined {

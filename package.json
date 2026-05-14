@@ -2,10 +2,10 @@
   "name": "keil-vscode-assistant",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.9.24",
-  "publisher": "jacksonjim",
+  "version": "1.15.24",
+  "publisher": "Dastan",
   "icon": "res/icons/icon.png",
-  "author": "jacksonjim <jacksonjim@foxmail.com>",
+  "author": "Dastan <dastan@139.com>",
   "readme": "README.md",
   "license": "SEE LICENSE IN LICENSE",
   "l10n": "./l10n",
@@ -23,7 +23,7 @@
     "ARM7",
     "ARM9"
   ],
-  "homepage": "https://github.com/jacksonjim/keil-assistant",
+  "homepage": "https://github.com/Dastan-Prince/keil-assistant",
   "engines": {
     "vscode": "^1.73.0"
   },
@@ -37,11 +37,11 @@
   "main": "./dist/extension.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jacksonjim/keil-assistant.git"
+    "url": "git+https://github.com/Dastan-Prince/keil-assistant.git"
   },
   "bugs": {
-    "url": "https://github.com/jacksonjim/keil-assistant/issues",
-    "email": "jacksonjim@foxmail.com"
+    "url": "https://github.com/Dastan-Prince/keil-assistant/issues",
+    "email": "dastan@139.com"
   },
   "extensionPack": [],
   "extensionDependencies": [],
