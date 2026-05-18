@@ -2,7 +2,7 @@
   "name": "keil-vscode-assistant",
   "displayName": "%displayName%",
   "description": "%description%",
-  "version": "1.15.24",
+  "version": "1.15.26",
   "publisher": "Dastan",
   "icon": "res/icons/icon.png",
   "author": "Dastan <dastan@139.com>",

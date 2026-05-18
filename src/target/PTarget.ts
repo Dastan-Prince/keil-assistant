@@ -478,27 +478,55 @@ export abstract class PTarget implements IView {
             const prjRoot = this.project.uvprjFile.dir;
             const diagnosticsMap = new Map<string, Diagnostic[]>();
 
-            // ARMCC/ARMCLANG 格式: file(line): error/warning: #code: message
-            // 例如: ../Core/Src/main.c(47): error:  #20: identifier "uint16_" is undefined
-            const armccPattern = /^(.+)\((\d+)\):\s+(error|warning):\s+#([\d\w-]+):\s+(.+)$/gm;
+            // ARMCC V5 格式: file(line): error/warning: #code: message
+            // 例如: ..\Core\Src\main.c(47): error:  #20: identifier "uint16_" is undefined
+            const armccV5Pattern = /^(.+)\((\d+)\):\s+(error|warning):\s+#([\d\w-]+):\s+(.+)$/gm;
+            // ARMCLANG V6 格式: file(line): error/warning/note: message
+            // 例如: ../Core/Src/main.c(138): error: use of undeclared identifier 'xxx'
+            // 例如: ../Core/Src/main.c(603): warning: implicit declaration of function 'xxx' is invalid in C99 [-Wimplicit-function-declaration]
+            // 例如: ../IIM423xx/Iim423xxTransport.h(96): note: 'inv_iim423xx_read_reg' declared here
+            const armclangV6Pattern = /^(.+)\((\d+)\):\s+(error|warning|note):\s+(.+)$/gm;
+            // 链接器错误格式: file: Error/Warning: Lxxxx: message（无行号）
+            // 例如: Project\Project.axf: Error: L6218E: Undefined symbol xxx (referred from main.o).
+            const linkerPattern = /^(.+):\s+(Error|Warning):\s+([A-Z]\d+[A-Z]):\s+(.+)$/gm;
             // GCC 格式: file:line:column: severity: message
             // 例如: ../Core/Src/main.c:47:10: error: identifier "uint16_" is undefined
             const gccPattern = /^(.+):(\d+):(\d+):\s+(error|warning|fatal error):\s+(.*)$/gm;
 
             let match: RegExpExecArray | null;
 
-            // 先尝试 ARMCC 格式
-            while ((match = armccPattern.exec(logStr)) !== null) {
+            // 先尝试 ARMCC V5 格式
+            while ((match = armccV5Pattern.exec(logStr)) !== null) {
                 const [_full, filePath, lineStr, severity, code, message] = match;
                 this.addDiagnostic(diagnosticsMap, prjRoot, filePath, parseInt(lineStr), 1, severity, message, code);
             }
 
-            // 如果 ARMCC 没匹配到，尝试 GCC 格式
+            // 如果 ARMCC V5 没匹配到，尝试 ARMCLANG V6 格式
+            if (diagnosticsMap.size === 0) {
+                while ((match = armclangV6Pattern.exec(logStr)) !== null) {
+                    const [_full, filePath, lineStr, severity, message] = match;
+                    // 尝试从警告消息中提取 [-Wxxx] 代码
+                    const warningCodeMatch = message.match(/\[(-W[\w-]+)\]$/);
+                    const code = warningCodeMatch ? warningCodeMatch[1] : undefined;
+                    const cleanMessage = warningCodeMatch ? message.replace(/\s*\[-W[\w-]+\]$/, '') : message;
+                    this.addDiagnostic(diagnosticsMap, prjRoot, filePath, parseInt(lineStr), 1, severity, cleanMessage, code);
+                }
+            }
+
+            // 如果前面都没匹配到，尝试 GCC 格式
             if (diagnosticsMap.size === 0) {
                 while ((match = gccPattern.exec(logStr)) !== null) {
                     const [_full, filePath, lineStr, colStr, severity, message] = match;
                     this.addDiagnostic(diagnosticsMap, prjRoot, filePath, parseInt(lineStr), parseInt(colStr), severity, message);
                 }
+            }
+
+            // 始终尝试匹配链接器错误（链接器错误可能与编译错误同时出现）
+            while ((match = linkerPattern.exec(logStr)) !== null) {
+                const [_full, filePath, severity, code, message] = match;
+                const lowerSeverity = severity.toLowerCase();
+                // 链接器错误没有行号，使用第1行
+                this.addDiagnostic(diagnosticsMap, prjRoot, filePath, 1, 1, lowerSeverity, message, code);
             }
 
             // 更新诊断集合
@@ -527,7 +555,14 @@ export abstract class PTarget implements IView {
         // 将相对路径转换为绝对路径
         const absPath = normalize(prjRoot + File.sep + rawPath).replace(/\\/g, '/');
         const range = new Range(line - 1, column - 1, line - 1, Number.MAX_SAFE_INTEGER);
-        const diagSeverity = severity.includes('error') ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning;
+        let diagSeverity: DiagnosticSeverity;
+        if (severity.includes('error')) {
+            diagSeverity = DiagnosticSeverity.Error;
+        } else if (severity === 'note') {
+            diagSeverity = DiagnosticSeverity.Information;
+        } else {
+            diagSeverity = DiagnosticSeverity.Warning;
+        }
         const diag = new Diagnostic(range, message, diagSeverity);
         if (code) {
             diag.code = code;
