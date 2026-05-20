@@ -525,8 +525,15 @@ export abstract class PTarget implements IView {
             while ((match = linkerPattern.exec(logStr)) !== null) {
                 const [_full, filePath, severity, code, message] = match;
                 const lowerSeverity = severity.toLowerCase();
+                
+                // 如果是.axf文件，替换为同名的.build_log.htm文件
+                let targetFile = filePath;
+                if (filePath.toLowerCase().endsWith('.axf')) {
+                    targetFile = filePath.replace(/\.axf$/i, '.build_log.htm');
+                }
+                
                 // 链接器错误没有行号，使用第1行
-                this.addDiagnostic(diagnosticsMap, prjRoot, filePath, 1, 1, lowerSeverity, message, code);
+                this.addDiagnostic(diagnosticsMap, prjRoot, targetFile, 1, 1, lowerSeverity, message, code);
             }
 
             // 更新诊断集合
