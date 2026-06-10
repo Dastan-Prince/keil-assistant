@@ -272,7 +272,7 @@ export abstract class PTarget implements IView {
         this.defines.clear();
 
         this.getDefineString(this.targetDOM);
-        const incListStr: string = this.getIncString(this.targetDOM);
+        const incListStr: string = this.getIncString(this.targetDOM) ?? '';
         const _groups: any = this.getGroups(this.targetDOM);
         const sysIncludes = this.getSystemIncludes(this.targetDOM);
         const rteIncludes = this.getRTEIncludes(this.targetDOM, this.rteDom);

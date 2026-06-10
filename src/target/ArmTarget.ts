@@ -507,9 +507,12 @@ export class ArmTarget extends PTarget {
         const keilRootDir = new File(ResourceManager.getInstance().getKeilRootDir(this.getKeilPlatform()));
         if (keilRootDir.isDir()) {
             const pCCUsed = target['pCCUsed'];
-            let toolchain = pCCUsed.split("::")[2];
-            if (toolchain === null || toolchain === '') {
-                toolchain = target['uAC6'] === 1 ? 'ARMCLANG' : 'ARMCC';;
+            let toolchain: string | undefined;
+            if (pCCUsed) {
+                toolchain = pCCUsed.split("::")[2];
+            }
+            if (!toolchain) {
+                toolchain = target['uAC6'] === 1 ? 'ARMCLANG' : 'ARMCC';
             }
             const incDirPath = normalize(`${keilRootDir.path}${File.sep}ARM${File.sep}${toolchain}${File.sep}include`);
             const incDir = new File(incDirPath);
