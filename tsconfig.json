@@ -1,11 +1,10 @@
 {
   "compilerOptions": {
     "module": "commonjs",
-    "target": "ES2023",
+    "target": "ES2021",
     "outDir": "dist",
     "lib": [
-      "ES2023",
-      "DOM"
+      "ES2021"
     ],
     "inlineSourceMap": true,
     "rootDir": ".",

@@ -8,7 +8,6 @@
   "author": "Dastan <dastan@139.com>",
   "readme": "README.md",
   "license": "SEE LICENSE IN LICENSE",
-  "l10n": "./l10n",
   "keywords": [
     "keil",
     "embedded",
@@ -25,7 +24,7 @@
   ],
   "homepage": "https://github.com/Dastan-Prince/keil-assistant",
   "engines": {
-    "vscode": "^1.73.0"
+    "vscode": "^1.70.2"
   },
   "categories": [
     "Programming Languages",
@@ -33,7 +32,18 @@
     "Other",
     "Extension Packs"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onCommand:explorer.open",
+    "onCommand:project.switch",
+    "onCommand:project.active",
+    "onCommand:project.close",
+    "onCommand:project.build",
+    "onCommand:project.rebuild",
+    "onCommand:project.download",
+    "onCommand:item.copyValue",
+    "onCommand:project.generateCompileCommandsJson",
+    "onView:project"
+  ],
   "main": "./dist/extension.js",
   "repository": {
     "type": "git",
@@ -49,26 +59,26 @@
     "workspace"
   ],
   "scripts": {
-    "setup": "yarn install",
-    "compile": "yarn check-types && ts-node esbuild.ts",
+    "setup": "npm install",
+    "compile": "npm run check-types && ts-node esbuild.ts",
     "check-types": "tsc --noEmit",
     "compile-unit-test": "tsc --build test.tsconfig.json",
     "compile-watch-unit-test": "tsc --build test.tsconfig.json --watch",
-    "watch": "yarn compile && yarn watch:tsc",
+    "watch": "npm run compile && npm run watch:tsc",
     "watch:esbuild": "ts-node esbuild.ts --watch",
     "watch-tsc": "tsc --build tsconfig.json --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "compile-tests": "tsc -p test.tsconfig.json --outDir out",
     "watch-tests": "tsc -p test.tsconfig.json --watch --outDir out",
-    "pretest": "yarn run compile-tests && yarn run compile",
+    "pretest": "npm run compile-tests && npm run compile",
     "lint": "oxlint .",
     "test": "ts-node ./out/test/runTest.js",
-    "package": "yarn run check-types && ts-node esbuild.ts --production",
-    "vscode:prepublish": "yarn run package",
-    "vsce-package": "vsce package --yarn",
-    "vsce-package-pre": "vsce package --pre-release --yarn",
-    "vsce-publish": "vsce publish --yarn",
-    "deploy": "vsce publish --yarn"
+    "package": "npm run check-types && ts-node esbuild.ts --production",
+    "vscode:prepublish": "npm run package",
+    "vsce-package": "vsce package",
+    "vsce-package-pre": "vsce package --pre-release",
+    "vsce-publish": "vsce publish",
+    "deploy": "vsce publish"
   },
   "dependencies": {
     "@vscode/l10n": "^0.0.18"
@@ -77,13 +87,13 @@
     "@types/ini": "^4.1.1",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
-    "@types/node": "^24.x",
-    "@types/vscode": "^1.73.0",
+    "@types/node": "^16.18.0",
+    "@types/vscode": "1.70.0",
     "@vscode/dts": "^0.4.1",
     "@vscode/l10n-dev": "^0.0.35",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.7.1",
-    "chokidar": "^5.0.0",
+    "chokidar": "^4.0.3",
     "fast-xml-parser": "^5.3.3",
     "iconv-lite": "^0.7.1",
     "mocha": "^11.7.5",

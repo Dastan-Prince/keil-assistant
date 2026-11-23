@@ -13,6 +13,7 @@ async function main() {
     sourcemap: true,
     sourcesContent: false,
     platform: 'node',
+    target: 'node16',
     // outfile: path.resolve(__dirname, 'dist', 'src', 'extension.js'),
     outfile: 'dist/extension.js',
     external: ['vscode', 'xml2js'], // 添加 xml2js，与 webpack 配置保持一致

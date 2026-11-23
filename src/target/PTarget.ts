@@ -3,7 +3,8 @@ import { EventEmitter as EventsEmitter } from 'events';
 import { File } from "../node_utility/File";
 import type { KeilProjectInfo } from "../core/KeilProjectInfo";
 import type { OutputChannel } from "vscode";
-import { commands, l10n, languages, window, Task, TaskScope, ShellExecution, tasks, DiagnosticCollection, DiagnosticSeverity, Diagnostic, Uri, Range } from "vscode";
+import { commands, languages, window, Task, TaskScope, ShellExecution, tasks, DiagnosticCollection, DiagnosticSeverity, Diagnostic, Uri, Range } from "vscode";
+import { t } from "../localize";
 import { FileGroup } from "../core/FileGroup";
 import { normalize, resolve } from 'path';
 import { ResourceManager } from "../ResourceManager";
@@ -396,7 +397,7 @@ export abstract class PTarget implements IView {
 
     private runAsyncTask(name: string, type: 'b' | 'r' | 'f' = 'b') {
         if (this.isTaskRunning) {
-            const msg = l10n.t('Task isRuning Please wait it finished try !');
+            const msg = t('Task isRuning Please wait it finished try !');
 
             window.showWarningMessage(msg);
 

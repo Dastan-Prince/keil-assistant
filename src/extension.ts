@@ -2,10 +2,12 @@ import type {
     ExtensionContext, OutputChannel, StatusBarItem} from 'vscode';
 import {
     StatusBarAlignment,
-    commands, env, l10n, window
+    commands, env, window
 } from 'vscode';
 
 import { dirname } from 'path';
+
+import { initL10n, t } from './localize';
 
 import { File } from './node_utility/File';
 import { ResourceManager } from './ResourceManager';
@@ -18,6 +20,7 @@ let myStatusBarItem: StatusBarItem;
 let channel: OutputChannel;
 
 export function activate(context: ExtensionContext) {
+    initL10n(context);
     console.info('---- keil-assistant actived >>>  ----');
     channel ??= window.createOutputChannel('keil-vscode');
     myStatusBarItem = window.createStatusBarItem(StatusBarAlignment.Left, 200);
@@ -38,7 +41,7 @@ export function activate(context: ExtensionContext) {
 
     subscriber.push(commands.registerCommand('explorer.open', async () => {
         const uri = await window.showOpenDialog({
-            openLabel: l10n.t('Open keil uVision project'),
+            openLabel: t('Open keil uVision project'),
             canSelectFolders: false,
             canSelectMany: false,
             filters: {
@@ -54,15 +57,15 @@ export function activate(context: ExtensionContext) {
 
                 await prjExplorer.openProject(uvPrjPath, false);
                 // switch workspace
-                const msg = l10n.t('keil project load done ! switch workspace ?');
-                const result = await window.showInformationMessage(msg, l10n.t('Ok'), l10n.t('Later'));
+                const msg = t('keil project load done ! switch workspace ?');
+                const result = await window.showInformationMessage(msg, t('Ok'), t('Later'));
 
-                if (result === l10n.t('Ok')) {
+                if (result === t('Ok')) {
                    prjExplorer.openWorkspace(new File(dirname(uvPrjPath)));
                 }
             }
         } catch (error) {
-            const errMsg = l10n.t('Open project failed! msg');
+            const errMsg = t('Open project failed! msg');
 
             window.showErrorMessage(`${errMsg}: ${(error as Error).message}`);
         }

@@ -7,9 +7,10 @@ import type {
     StatusBarItem
 } from "vscode";
 import {
-    commands, EventEmitter, l10n,
+    commands, EventEmitter,
     TreeItem, TreeItemCollapsibleState, Uri, workspace, window
 } from "vscode";
+import { t } from "../localize";
 
 import type { IView } from "../core/IView";
 import { KeilProject } from "../core/KeilProject";
@@ -166,18 +167,18 @@ export class ProjectExplorer implements TreeDataProvider<IView> {
 
     async openProject(path: string, hasMultiplyProject: boolean): Promise<KeilProject | undefined> {
         if (this.workspacePath === undefined) {
-            const msg = l10n.t('The workspace directory is empty, Goto open the workspace directory?');
-            const result = await window.showInformationMessage(msg, l10n.t('Ok'), l10n.t('Cancel'));
+            const msg = t('The workspace directory is empty, Goto open the workspace directory?');
+            const result = await window.showInformationMessage(msg, t('Ok'), t('Cancel'));
 
-            if (result === l10n.t('Ok')) {
+            if (result === t('Ok')) {
                 this.openWorkspace(new File(dirname(path)));
 
                 return;
             }
-            if (result === l10n.t('Cancel')) {
-                const fmsg = l10n.t('Error: open project');
-                const msg = l10n.t('Failed, The workspace Path');
-                const emsg = l10n.t('is NULL , Please use vscode open the project folder.');
+            if (result === t('Cancel')) {
+                const fmsg = t('Error: open project');
+                const msg = t('Failed, The workspace Path');
+                const emsg = t('is NULL , Please use vscode open the project folder.');
                 const errorMsg = `${fmsg} ${path} ${msg} ${this.workspacePath} ${emsg}`;
 
                 this.channel.appendLine(errorMsg);
@@ -242,7 +243,7 @@ export class ProjectExplorer implements TreeDataProvider<IView> {
             const tList = prj.getTargets();
             const targetName = await window.showQuickPick(tList.map((ele) => ele.targetName), {
                 canPickMany: false,
-                placeHolder: l10n.t('please select a target name for keil project')
+                placeHolder: t('please select a target name for keil project')
             });
 
             if (targetName) {
@@ -256,7 +257,7 @@ export class ProjectExplorer implements TreeDataProvider<IView> {
             const tList = this.curActiveProject.getTargets();
             const targetName = await window.showQuickPick(tList.map((ele) => ele.targetName), {
                 canPickMany: false,
-                placeHolder: l10n.t('please select a target name for keil project')
+                placeHolder: t('please select a target name for keil project')
             });
 
             if (targetName) {
@@ -281,7 +282,7 @@ export class ProjectExplorer implements TreeDataProvider<IView> {
             if (this.curActiveProject) {
                 return this.curActiveProject.getActiveTarget();
             } else {
-                window.showWarningMessage(l10n.t('Not found any active project !'));
+                window.showWarningMessage(t('Not found any active project !'));
             }
         }
     }
@@ -319,7 +320,7 @@ export class ProjectExplorer implements TreeDataProvider<IView> {
                 window.showTextDocument(Uri.parse(file.toUri()), { preview: isPreview });
 
             } else {
-                const msg = l10n.t('Not found file');
+                const msg = t('Not found file');
 
                 window.showWarningMessage(`${msg}: ${source.file.path}`);
             }
@@ -367,7 +368,7 @@ export class ProjectExplorer implements TreeDataProvider<IView> {
     private updateStatusBarItem(prjName: string | undefined): void {
         if (prjName !== undefined) {
             this.myStatusBarItem.text = prjName;
-            this.myStatusBarItem.tooltip = l10n.t('switch project target');
+            this.myStatusBarItem.tooltip = t('switch project target');
             this.myStatusBarItem.show();
         } else {
             this.myStatusBarItem.hide();
